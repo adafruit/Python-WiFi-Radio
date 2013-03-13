@@ -274,7 +274,7 @@ while pianobar.isalive():
                     print 'Song: "{}"'.format(pianobar.before)
                     s = pianobar.before + '    '
                     n = len(s)
-                    xTitleWrap = -n
+                    xTitleWrap = -n + 2
                     # 1+ copies + up to 15 chars for repeating scroll
                     songTitle = s * (1 + (16 / n)) + s[0:16]
                     x = pianobar.expect(' \| ')
@@ -286,7 +286,7 @@ while pianobar.isalive():
                             print 'Album: "{}"'.format(pianobar.before)
                             s = artist + ' | ' + pianobar.before + ' | '
                             n = len(s)
-                            xInfoWrap = -n
+                            xInfoWrap = -n + 2
                             # 1+ copies + up to 15 chars for repeating scroll
                             songInfo  = s * (2 + (16 / n)) + s[0:16]
             elif x == 1:
