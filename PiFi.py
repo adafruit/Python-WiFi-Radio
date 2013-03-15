@@ -21,15 +21,14 @@ from Adafruit_I2C import Adafruit_I2C
 from Adafruit_MCP230xx import Adafruit_MCP230XX
 from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
 
-# If using an early Raspberry Pi board (256 MB Model B), set to True.
-# For all other board revisions/models, leave this False.
-EARLY_PI = True
 
 # Constants:
+RGB_LCD      = True # Set to 'True' if using color backlit LCD
+MAX_FPS      = 6 if RGB_LCD else 4 # Limit screen refresh rate for legibility
 VOL_MIN      = -30
 VOL_MAX      =   5
 VOL_DEFAULT  =   0
-HOLD_TIME    = 3.0   # Time (seconds) to hold select button for shut down
+HOLD_TIME    = 3.0 # Time (seconds) to hold select button for shut down
 PICKLEFILE   = '/home/pi/.config/pianobar/state.p'
 
 # Global state:
@@ -41,6 +40,7 @@ paused       = False       # True if music is paused
 staSel       = False       # True if selecting station
 volTime      = 0           # Time of last volume button interaction
 playMsgTime  = 0           # Time of last 'Playing' message display
+staBtnTime   = 0           # Time of last button press on station menu
 xTitle       = 16          # X position of song title (scrolling)
 xInfo        = 16          # X position of artist/album (scrolling)
 xStation     = 0           # X position of station (scrolling)
@@ -85,7 +85,6 @@ charSevenBitmaps = [
 
 
 # Exit handler tries to leave LCD in a nice state.
-# Not 100% foolproof; this (or the library) needs some work.
 def cleanExit():
     if lcd is not None:
         time.sleep(0.5)
@@ -97,9 +96,15 @@ def cleanExit():
 
 def shutdown():
     lcd.clear()
-    lcd.backlight(lcd.YELLOW)
+    if RGB_LCD: lcd.backlight(lcd.YELLOW)
     lcd.message('Wait 30 seconds\nto unplug...')
-    time.sleep(5)
+    # Ramp down volume over 5 seconds while 'wait' message shows
+    steps = int((volCur - VOL_MIN) + 0.5) + 1
+    pause = 5.0 / steps
+    for i in range(steps):
+        pianobar.send('(')
+        time.sleep(pause)
+    # Replace with shutdown for release:
     exit(0)
 
 
@@ -135,7 +140,7 @@ def drawNextTrack():
 
 
 # Draw station menu (overwrites fulls screen to facilitate scrolling)
-def drawStations(stationNum, listTop, xStation):
+def drawStations(stationNum, listTop, xStation, staBtnTime):
     last = len(stationList)
     if last > 2: last = 2  # Limit stations displayed
     ret  = 0  # Default return value (for station scrolling)
@@ -146,12 +151,16 @@ def drawStations(stationNum, listTop, xStation):
         if (listTop + line) == stationNum: # Selected station?
             msg += chr(7) # Show selection cursor
             if sLen > 15: # Is station name longer than line?
-                # Scrollinate
-                s2 = s + '   ' + s[0:15]
-                xStationWrap = -(sLen + 2)
-                s2 = s2[-xStation:15-xStation]
-                if xStation > xStationWrap:
-                    ret = xStation - 1
+                if (time.time() - staBtnTime) < 0.5:
+                    # Just show start of line for half a sec
+                    s2 = s[0:15]
+                else:
+                    # After that, scrollinate
+                    s2 = s + '   ' + s[0:15]
+                    xStationWrap = -(sLen + 2)
+                    s2 = s2[-xStation:15-xStation]
+                    if xStation > xStationWrap:
+                        ret = xStation - 1
             else: # Short station name - pad w/spaces if needed
                 s2 = s[0:15]
                 if sLen < 15: s2 += ' ' * (15 - sLen)
@@ -179,9 +188,20 @@ def getStations():
     ids   = []
     # Parse each line
     for b in a[:-1]: # Skip last line (station select prompt)
-        print '\"{}\"'.format(b)
-        ids.append(b[5:7].strip())
-        names.append(b[13:].strip())
+        # Occasionally a queued up 'TIME: -XX:XX/XX:XX' string appears
+        # in the output.  Station list entries have a known format,
+        # so it's straightforward to skip these bogus lines.
+        if b[0:5].find(':') >= 0: continue
+#        print '\"{}\"'.format(b)
+        id   = b[5:7].strip()
+        name = b[13:].strip()
+        # If 'QuickMix' found, always put at head of list
+        if name == 'QuickMix':
+            ids.insert(0, id)
+            names.insert(0, name)
+        else:
+            ids.append(id)
+            names.append(name)
     return names, ids
 
 
@@ -190,20 +210,19 @@ def getStations():
 
 atexit.register(cleanExit)
 
-if EARLY_PI: lcd = Adafruit_CharLCDPlate(busnum=0)
-else:        lcd = Adafruit_CharLCDPlate(busnum=1)
+lcd = Adafruit_CharLCDPlate()
 lcd.begin(16, 2)
-lcd.backlight(lcd.OFF)
 lcd.clear()
 
 # Show IP address (if network is available)
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(('8.8.8.8', 0))
-    lcd.backlight(lcd.GREEN)
+    if RGB_LCD: lcd.backlight(lcd.GREEN)
+    else:       lcd.backlight(lcd.ON)
     lcd.message('My IP address is\n' + s.getsockname()[0])
 except:
-    lcd.backlight(lcd.RED)
+    if RGB_LCD: lcd.backlight(lcd.RED)
     lcd.message('Network is\nunreachable')
     while True: pass
 
@@ -255,6 +274,9 @@ except: # Use first station in list
 # Main loop.  This is not quite a straight-up state machine; there's some
 # persnickety 'nesting' and canceling among mode states, so instead a few
 # global booleans take care of it rather than a mode variable.
+
+if RGB_LCD: lcd.backlight(lcd.ON)
+lastTime = 0
 
 while pianobar.isalive():
 
@@ -367,7 +389,8 @@ while pianobar.isalive():
             listTop    = 0 # Top of list on screen
             xStation   = 0 # X scrolling for long station names
             stationList, stationIDs = getStations()
-            drawStations(stationNum, listTop, 0)
+            staBtnTime = time.time()
+            drawStations(stationNum, listTop, 0, staBtnTime)
         else:
             # Just exited station menu with selection - go play.
             print 'Selecting station: "{}"'.format(stationIDs[stationNum])
@@ -390,7 +413,8 @@ while pianobar.isalive():
                     if cursorY > 0: cursorY -= 1 # Move cursor
                     else:           listTop -= 1 # Y-scroll
                     xStation = 0                 # Reset X-scroll
-            xStation = drawStations(stationNum, listTop, xStation)
+            staBtnTime = time.time()             # Reset button time
+            xStation = drawStations(stationNum, listTop, 0, staBtnTime)
         else:
             # Not in station menu
             if volSet is False:
@@ -418,7 +442,12 @@ while pianobar.isalive():
 
     # Other logic specific to unpressed buttons:
     else:
-        if volSet:
+        if staSel:
+            # In station menu, X-scroll active station name if long
+            if len(stationList[stationNum]) > 15:
+                xStation = drawStations(stationNum, listTop, xStation,
+                  staBtnTime)
+        elif volSet:
             volSpeed = 1.0 # Buttons released = reset volume speed
             # If no interaction in 4 seconds, return to prior state.
             # Volume bar will be erased by subsequent operations.
@@ -426,13 +455,8 @@ while pianobar.isalive():
                 volSet = False
                 if paused: drawPaused()
 
-
     # Various 'always on' logic independent of buttons
-    if staSel:
-        # In station menu, X-scroll active station name if long
-        if len(stationList[stationNum]) > 15:
-            xStation = drawStations(stationNum, listTop, xStation)
-    else:
+    if not staSel:
         # Play/pause/volume: draw upper line (song title)
         if songTitle is not None:
             xTitle = marquee(songTitle, xTitle, 0, xTitleWrap)
@@ -466,5 +490,8 @@ while pianobar.isalive():
                 # Display artist/album (rather than 'Playing')
                 xInfo = marquee(songInfo, xInfo, 1, xInfoWrap)
 
-
-
+    # Throttle frame rate, keeps screen legible
+    while True:
+        t = time.time()
+        if (t - lastTime) > (1.0 / MAX_FPS): break
+    lastTime = t
