@@ -90,6 +90,7 @@ def cleanExit():
         time.sleep(0.5)
         lcd.backlight(lcd.OFF)
         lcd.clear()
+        lcd.stop()
     if pianobar is not None:
         pianobar.kill(0)
 
@@ -254,8 +255,10 @@ try:
     f.close()
     volNew         = v[0]
     defaultStation = v[1]
+    print 'Default station = ' + defaultStation
 except:
     defaultStation = None
+    print 'No default station'
 
 # Launch pianobar as pi user (to use same config data, etc.) in background:
 print('Spawning pianobar...')
@@ -265,9 +268,11 @@ pianobar.expect('Get stations... Ok.\r\n', timeout=10)
 stationList, stationIDs = getStations()
 try: # Use station name from last session
     i = stationList.index(defaultStation)
+    print 'Selecting station ' + i
     pianobar.sendline(str(i))
 except: # Use first station in list
     pianobar.sendline(stationIDs[0])
+    print 'Selecting station ' + stationIDs[0]
 
 
 # --------------------------------------------------------------------------
@@ -335,11 +340,12 @@ while pianobar.isalive():
 
 
     # Poll all buttons once, avoids repeated I2C traffic for different cases
-    btnUp    = lcd.buttonPressed(lcd.UP)
-    btnDown  = lcd.buttonPressed(lcd.DOWN)
-    btnLeft  = lcd.buttonPressed(lcd.LEFT)
-    btnRight = lcd.buttonPressed(lcd.RIGHT)
-    btnSel   = lcd.buttonPressed(lcd.SELECT)
+    b        = lcd.buttons()
+    btnUp    = b & (1 << lcd.UP)
+    btnDown  = b & (1 <<lcd.DOWN)
+    btnLeft  = b & (1 <<lcd.LEFT)
+    btnRight = b & (1 <<lcd.RIGHT)
+    btnSel   = b & (1 <<lcd.SELECT)
 
     # Certain button actions occur regardless of current mode.
     # Holding the select button (for shutdown) is a big one.
