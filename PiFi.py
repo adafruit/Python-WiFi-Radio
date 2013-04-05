@@ -49,7 +49,8 @@ xInfoWrap    = 0
 xStationWrap = 0
 songTitle   = ''
 songInfo    = ''
-stationNum  = 0
+stationNum  = 0            # Station currently playing
+stationNew  = 0            # Station currently highlighted in menu
 stationList = ['']
 stationIDs  = ['']
 
@@ -141,7 +142,7 @@ def drawNextTrack():
 
 
 # Draw station menu (overwrites fulls screen to facilitate scrolling)
-def drawStations(stationNum, listTop, xStation, staBtnTime):
+def drawStations(stationNew, listTop, xStation, staBtnTime):
     last = len(stationList)
     if last > 2: last = 2  # Limit stations displayed
     ret  = 0  # Default return value (for station scrolling)
@@ -149,7 +150,7 @@ def drawStations(stationNum, listTop, xStation, staBtnTime):
     msg  = '' # Clear output string to start
     for s in stationList[listTop:listTop+2]: # For each station...
         sLen = len(s) # Length of station name
-        if (listTop + line) == stationNum: # Selected station?
+        if (listTop + line) == stationNew: # Selected station?
             msg += chr(7) # Show selection cursor
             if sLen > 15: # Is station name longer than line?
                 if (time.time() - staBtnTime) < 0.5:
@@ -181,6 +182,9 @@ def drawStations(stationNum, listTop, xStation, staBtnTime):
 def getStations():
     lcd.clear()
     lcd.message('Retrieving\nstation list...')
+# Not helping
+#    pianobar.stdout.flush()
+#    pianobar.buffer = ''
     pianobar.expect('Select station: ', timeout=10)
     # 'before' is now string of stations I believe
     # break up into separate lines
@@ -189,20 +193,26 @@ def getStations():
     ids   = []
     # Parse each line
     for b in a[:-1]: # Skip last line (station select prompt)
-        # Occasionally a queued up 'TIME: -XX:XX/XX:XX' string appears
-        # in the output.  Station list entries have a known format,
-        # so it's straightforward to skip these bogus lines.
-        if b[0:5].find(':') >= 0: continue
+        # Occasionally a queued up 'TIME: -XX:XX/XX:XX' string or
+        # 'new playlist...' appears in the output.  Station list
+        # entries have a known format, so it's straightforward to
+        # skip these bogus lines.
 #        print '\"{}\"'.format(b)
-        id   = b[5:7].strip()
-        name = b[13:].strip()
-        # If 'QuickMix' found, always put at head of list
-        if name == 'QuickMix':
-            ids.insert(0, id)
-            names.insert(0, name)
-        else:
-            ids.append(id)
-            names.append(name)
+        if (b.find('playlist...') >= 0): continue
+#        if b[0:5].find(':') >= 0: continue
+#        if (b.find(':') >= 0) or (len(b) < 13): continue
+        # Alternate strategy: must contain either 'QuickMix' or 'Radio':
+        # Somehow the 'playlist' case would get through this check.  Buh?
+        if b.find('Radio') or b.find('QuickMix'):
+            id   = b[5:7].strip()
+            name = b[13:].strip()
+            # If 'QuickMix' found, always put at head of list
+            if name == 'QuickMix':
+                ids.insert(0, id)
+                names.insert(0, name)
+            else:
+                ids.append(id)
+                names.append(name)
     return names, ids
 
 
@@ -266,10 +276,13 @@ pianobar = pexpect.spawn('sudo -u pi pianobar')
 print('Receiving station list...')
 pianobar.expect('Get stations... Ok.\r\n', timeout=10)
 stationList, stationIDs = getStations()
+#print stationList
+#print stationIDs
 try: # Use station name from last session
     i = stationList.index(defaultStation)
-    print 'Selecting station ' + i
-    pianobar.sendline(str(i))
+#    print 'i = ' + str(i)
+    print 'Selecting station ' + stationIDs[i]
+    pianobar.sendline(stationIDs[i])
 except: # Use first station in list
     pianobar.sendline(stationIDs[0])
     print 'Selecting station ' + stationIDs[0]
@@ -283,12 +296,14 @@ except: # Use first station in list
 if RGB_LCD: lcd.backlight(lcd.ON)
 lastTime = 0
 
+pattern_list = pianobar.compile_pattern_list(['SONG: ', 'STATION: ', 'TIME: '])
+
 while pianobar.isalive():
 
     # Process all pending pianobar output
     while True:
         try:
-            x = pianobar.expect(['SONG: ', 'STATION: ', 'TIME: '], timeout=0)
+            x = pianobar.expect(pattern_list, timeout=0)
             if x == 0:
                 songTitle  = ''
                 songInfo   = ''
@@ -391,14 +406,16 @@ while pianobar.isalive():
             lcd.createChar(7, charSevenBitmaps[0])
             volSet     = False
             cursorY    = 0 # Cursor position on screen
-            stationNum = 0 # Cursor position in list
+            stationNew = 0 # Cursor position in list
             listTop    = 0 # Top of list on screen
             xStation   = 0 # X scrolling for long station names
-            stationList, stationIDs = getStations()
+# Just keep the list we made at start-up
+#            stationList, stationIDs = getStations()
             staBtnTime = time.time()
-            drawStations(stationNum, listTop, 0, staBtnTime)
+            drawStations(stationNew, listTop, 0, staBtnTime)
         else:
             # Just exited station menu with selection - go play.
+            stationNum = stationNew # Make menu selection permanent
             print 'Selecting station: "{}"'.format(stationIDs[stationNum])
             pianobar.sendline(stationIDs[stationNum])
             paused = False
@@ -409,18 +426,18 @@ while pianobar.isalive():
         if staSel:
             # Move up or down station menu
             if btnDown:
-                if stationNum < (len(stationList) - 1):
-                    stationNum += 1              # Next station
+                if stationNew < (len(stationList) - 1):
+                    stationNew += 1              # Next station
                     if cursorY < 1: cursorY += 1 # Move cursor
                     else:           listTop += 1 # Y-scroll
                     xStation = 0                 # Reset X-scroll
-            elif stationNum > 0:                 # btnUp implied
-                    stationNum -= 1              # Prev station
+            elif stationNew > 0:                 # btnUp implied
+                    stationNew -= 1              # Prev station
                     if cursorY > 0: cursorY -= 1 # Move cursor
                     else:           listTop -= 1 # Y-scroll
                     xStation = 0                 # Reset X-scroll
             staBtnTime = time.time()             # Reset button time
-            xStation = drawStations(stationNum, listTop, 0, staBtnTime)
+            xStation = drawStations(stationNew, listTop, 0, staBtnTime)
         else:
             # Not in station menu
             if volSet is False:
@@ -450,8 +467,8 @@ while pianobar.isalive():
     else:
         if staSel:
             # In station menu, X-scroll active station name if long
-            if len(stationList[stationNum]) > 15:
-                xStation = drawStations(stationNum, listTop, xStation,
+            if len(stationList[stationNew]) > 15:
+                xStation = drawStations(stationNew, listTop, xStation,
                   staBtnTime)
         elif volSet:
             volSpeed = 1.0 # Buttons released = reset volume speed
