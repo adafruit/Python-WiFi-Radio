@@ -286,11 +286,11 @@ print('Receiving station list...')
 pianobar.expect('Get stations... Ok.\r\n', timeout=10)
 stationList, stationIDs = getStations()
 try:    # Use station name from last session
-    i = stationList.index(defaultStation)
+    stationNum = stationList.index(defaultStation)
 except: # Use first station in list
-    i = 0
-print 'Selecting station ' + stationIDs[i]
-pianobar.sendline(stationIDs[i])
+    stationNum = 0
+print 'Selecting station ' + stationIDs[stationNum]
+pianobar.sendline(stationIDs[stationNum])
 
 
 # --------------------------------------------------------------------------
