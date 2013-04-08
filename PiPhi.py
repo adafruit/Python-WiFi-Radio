@@ -23,7 +23,8 @@ from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
 
 
 # Constants:
-RGB_LCD      = True # Set to 'True' if using color backlit LCD
+RGB_LCD      = False # Set to 'True' if using color backlit LCD
+HALT_ON_EXIT = False # Set to 'True' to shut down system when exiting
 MAX_FPS      = 6 if RGB_LCD else 4 # Limit screen refresh rate for legibility
 VOL_MIN      = -30
 VOL_MAX      =   5
@@ -106,8 +107,11 @@ def shutdown():
     for i in range(steps):
         pianobar.send('(')
         time.sleep(pause)
-    # Replace with shutdown for release:
-    exit(0)
+    if HALT_ON_EXIT:
+        subprocess.call("sync")
+        subprocess.call(["shutdown", "-h", "now"])
+    else:
+        exit(0)
 
 
 # Draws song title or artist/album marquee at given position.
@@ -182,9 +186,6 @@ def drawStations(stationNew, listTop, xStation, staBtnTime):
 def getStations():
     lcd.clear()
     lcd.message('Retrieving\nstation list...')
-# Not helping
-#    pianobar.stdout.flush()
-#    pianobar.buffer = ''
     pianobar.expect('Select station: ', timeout=10)
     # 'before' is now string of stations I believe
     # break up into separate lines
@@ -225,18 +226,6 @@ lcd = Adafruit_CharLCDPlate()
 lcd.begin(16, 2)
 lcd.clear()
 
-# Show IP address (if network is available)
-try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(('8.8.8.8', 0))
-    if RGB_LCD: lcd.backlight(lcd.GREEN)
-    else:       lcd.backlight(lcd.ON)
-    lcd.message('My IP address is\n' + s.getsockname()[0])
-except:
-    if RGB_LCD: lcd.backlight(lcd.RED)
-    lcd.message('Network is\nunreachable')
-    while True: pass
-
 # Create volume bargraph custom characters (chars 0-5):
 for i in range(6):
     bitmap = []
@@ -265,10 +254,30 @@ try:
     f.close()
     volNew         = v[0]
     defaultStation = v[1]
-    print 'Default station = ' + defaultStation
 except:
     defaultStation = None
-    print 'No default station'
+
+# Show IP address (if network is available).  System might be freshly
+# booted and not have an address yet, so keep trying for a couple minutes
+# before reporting failure.
+t = time.time()
+while True:
+    if (time.time() - t) > 120:
+        # No connection reached after 2 minutes
+        if RGB_LCD: lcd.backlight(lcd.RED)
+        lcd.message('Network is\nunreachable')
+        time.sleep(30)
+        exit(0)
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 0))
+        if RGB_LCD: lcd.backlight(lcd.GREEN)
+        else:       lcd.backlight(lcd.ON)
+        lcd.message('My IP address is\n' + s.getsockname()[0])
+        time.sleep(5)
+        break         # Success -- let's hear some music!
+    except:
+        time.sleep(1) # Pause a moment, keep trying
 
 # Launch pianobar as pi user (to use same config data, etc.) in background:
 print('Spawning pianobar...')
@@ -276,16 +285,12 @@ pianobar = pexpect.spawn('sudo -u pi pianobar')
 print('Receiving station list...')
 pianobar.expect('Get stations... Ok.\r\n', timeout=10)
 stationList, stationIDs = getStations()
-#print stationList
-#print stationIDs
-try: # Use station name from last session
+try:    # Use station name from last session
     i = stationList.index(defaultStation)
-#    print 'i = ' + str(i)
-    print 'Selecting station ' + stationIDs[i]
-    pianobar.sendline(stationIDs[i])
 except: # Use first station in list
-    pianobar.sendline(stationIDs[0])
-    print 'Selecting station ' + stationIDs[0]
+    i = 0
+print 'Selecting station ' + stationIDs[i]
+pianobar.sendline(stationIDs[i])
 
 
 # --------------------------------------------------------------------------
