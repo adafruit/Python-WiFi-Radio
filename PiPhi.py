@@ -99,15 +99,15 @@ def cleanExit():
 
 def shutdown():
     lcd.clear()
-    if RGB_LCD: lcd.backlight(lcd.YELLOW)
-    lcd.message('Wait 30 seconds\nto unplug...')
-    # Ramp down volume over 5 seconds while 'wait' message shows
-    steps = int((volCur - VOL_MIN) + 0.5) + 1
-    pause = 5.0 / steps
-    for i in range(steps):
-        pianobar.send('(')
-        time.sleep(pause)
     if HALT_ON_EXIT:
+        if RGB_LCD: lcd.backlight(lcd.YELLOW)
+        lcd.message('Wait 30 seconds\nto unplug...')
+        # Ramp down volume over 5 seconds while 'wait' message shows
+        steps = int((volCur - VOL_MIN) + 0.5) + 1
+        pause = 5.0 / steps
+        for i in range(steps):
+            pianobar.send('(')
+            time.sleep(pause)
         subprocess.call("sync")
         subprocess.call(["shutdown", "-h", "now"])
     else:
