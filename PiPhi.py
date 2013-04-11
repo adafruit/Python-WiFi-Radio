@@ -283,7 +283,7 @@ while True:
 print('Spawning pianobar...')
 pianobar = pexpect.spawn('sudo -u pi pianobar')
 print('Receiving station list...')
-pianobar.expect('Get stations... Ok.\r\n', timeout=10)
+pianobar.expect('Get stations... Ok.\r\n', timeout=30)
 stationList, stationIDs = getStations()
 try:    # Use station name from last session
     stationNum = stationList.index(defaultStation)
