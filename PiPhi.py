@@ -16,7 +16,7 @@
 # http://www.adafruit.com/products/1110 RGB Negative 16x2 LCD + Keypad
 # http://www.adafruit.com/products/1115 Blue & White 16x2 LCD + Keypad
 
-import atexit, pexpect, pickle, socket, time
+import atexit, pexpect, pickle, socket, time, subprocess
 from Adafruit_I2C import Adafruit_I2C
 from Adafruit_MCP230xx import Adafruit_MCP230XX
 from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
