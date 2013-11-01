@@ -109,6 +109,7 @@ def shutdown():
             pianobar.send('(')
             time.sleep(pause)
         subprocess.call("sync")
+        cleanExit()
         subprocess.call(["shutdown", "-h", "now"])
     else:
         exit(0)
@@ -331,7 +332,7 @@ while pianobar.isalive():
                         x = pianobar.expect('\r\n')
                         if x == 0:
                             print 'Album: "{}"'.format(pianobar.before)
-                            s = artist + ' | ' + pianobar.before + ' | '
+                            s = artist + ' < ' + pianobar.before + ' > '
                             n = len(s)
                             xInfoWrap = -n + 2
                             # 1+ copies + up to 15 chars for repeating scroll
