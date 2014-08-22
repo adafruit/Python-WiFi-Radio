@@ -200,7 +200,8 @@ def getStations():
         # entries have a known format, so it's straightforward to
         # skip these bogus lines.
 #        print '\"{}\"'.format(b)
-        if (b.find('playlist...') >= 0): continue
+        if (b.find('playlist...') >= 0) or (b.find('Autostart') >= 0):
+            continue
 #        if b[0:5].find(':') >= 0: continue
 #        if (b.find(':') >= 0) or (len(b) < 13): continue
         # Alternate strategy: must contain either 'QuickMix' or 'Radio':

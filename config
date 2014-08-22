@@ -36,7 +36,7 @@ act_volup = )
 
 # Misc
 #audio_quality = low
-#autostart_station = 123456
+autostart_station = 123456
 
 #event_command = /home/pi/.config/pianobar/scripts/eventcmd.sh
 #fifo = /home/pi/.config/pianobar/ctl
