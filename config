@@ -43,7 +43,7 @@ autostart_station = 123456
 #sort = quickmix_10_name_az
 #love_icon = [+]
 #ban_icon = [-]
-volume = -30
+volume = -20
 
 # Format strings
 format_nowplaying_song = SONG: %t | %a | %l

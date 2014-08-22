@@ -26,8 +26,8 @@ from Adafruit_CharLCDPlate import Adafruit_CharLCDPlate
 RGB_LCD      = False # Set to 'True' if using color backlit LCD
 HALT_ON_EXIT = False # Set to 'True' to shut down system when exiting
 MAX_FPS      = 6 if RGB_LCD else 4 # Limit screen refresh rate for legibility
-VOL_MIN      = -30
-VOL_MAX      =   5
+VOL_MIN      = -20
+VOL_MAX      =  15
 VOL_DEFAULT  =   0
 HOLD_TIME    = 3.0 # Time (seconds) to hold select button for shut down
 PICKLEFILE   = '/home/pi/.config/pianobar/state.p'
