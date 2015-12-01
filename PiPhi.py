@@ -187,7 +187,7 @@ def drawStations(stationNew, listTop, xStation, staBtnTime):
 def getStations():
     lcd.clear()
     lcd.message('Retrieving\nstation list...')
-    pianobar.expect('Select station: ', timeout=10)
+    pianobar.expect('Select station: ', timeout=20)
     # 'before' is now string of stations I believe
     # break up into separate lines
     a     = pianobar.before.splitlines()
@@ -285,7 +285,7 @@ while True:
 print('Spawning pianobar...')
 pianobar = pexpect.spawn('sudo -u pi pianobar')
 print('Receiving station list...')
-pianobar.expect('Get stations... Ok.\r\n', timeout=30)
+pianobar.expect('Get stations... Ok.\r\n', timeout=60)
 stationList, stationIDs = getStations()
 try:    # Use station name from last session
     stationNum = stationList.index(defaultStation)
