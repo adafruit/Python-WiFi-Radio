@@ -192,7 +192,7 @@ def draw_stations(station_new, list_top, x_station, sta_btn_time):
 def get_stations():
     lcd.clear()
     lcd.message('Retrieving\nstation list...')
-    pianobar.expect('Select station: ', timeout=20)
+    pianobar.expect('Select station: '.encode(), timeout=20)
     # 'before' is now string of stations I believe
     # break up into separate lines
     a = pianobar.before.splitlines()
@@ -294,7 +294,7 @@ while True:
 print('Spawning pianobar...')
 pianobar = pexpect.spawn('pianobar')
 print('Receiving station list...')
-pianobar.expect('Get stations... Ok.\r\n', timeout=60)
+pianobar.expect('Get stations... Ok.\r\n'.encode(), timeout=60)
 station_list, station_ids = get_stations()
 try:    # Use station name from last session
     station_num = station_list.index(default_station)
@@ -313,7 +313,7 @@ if RGB_LCD:
     lcd.set_backlight(1.0)
 lastTime = 0
 
-pattern_list = pianobar.compile_pattern_list(['SONG: ', 'STATION: ', 'TIME: '])
+pattern_list = pianobar.compile_pattern_list(['SONG: '.encode(), 'STATION: '.encode(), 'TIME: '.encode()])
 
 while pianobar.isalive():
 
@@ -328,7 +328,7 @@ while pianobar.isalive():
                 x_info = 16
                 x_title_wrap = 0
                 x_info_wrap = 0
-                x = pianobar.expect(' \| ')
+                x = pianobar.expect(' \| '.encode())
                 if x == 0:  # Title | Artist | Album
                     print('Song: "{}"'.format(pianobar.before.decode()))
                     s = pianobar.before.decode() + '    '
@@ -336,11 +336,11 @@ while pianobar.isalive():
                     x_title_wrap = -n + 2
                     # 1+ copies + up to 15 chars for repeating scroll
                     song_title = s * int(1 + (16 / n)) + s[0:16]
-                    x = pianobar.expect(' \| ')
+                    x = pianobar.expect(' \| '.encode())
                     if x == 0:
                         print('Artist: "{}"'.format(pianobar.before.decode()))
                         artist = pianobar.before.decode()
-                        x = pianobar.expect('\r\n')
+                        x = pianobar.expect('\r\n'.encode())
                         if x == 0:
                             print('Album: "{}"'.format(pianobar.before.decode()))
                             s = artist + ' < ' + pianobar.before.decode() + ' > '
@@ -349,12 +349,12 @@ while pianobar.isalive():
                             # 1+ copies + up to 15 chars for repeating scroll
                             song_info = s * int(2 + (16 / n)) + s[0:16]
             elif x == 1:
-                x = pianobar.expect(' \| ')
+                x = pianobar.expect(' \| '.encode())
                 if x == 0:
                     print('Station: "{}"'.format(pianobar.before.decode()))
             elif x == 2:
                 # Time doesn't include newline - prints over itself.
-                x = pianobar.expect('\r', timeout=1)
+                x = pianobar.expect('\r'.encode(), timeout=1)
                 if x == 0:
                     print('Time: {}'.format(pianobar.before.decode()))
                 # Periodically dump state (volume and station name)
