@@ -17,6 +17,7 @@
 # http://www.adafruit.com/products/1115 Blue & White 16x2 LCD + Keypad
 
 import atexit
+import os
 import pexpect
 import pickle
 import socket
@@ -257,11 +258,10 @@ lcd.create_char(7, char_seven_bitmaps[1])
 
 # Get last-used volume and station name from pickle file
 try:
-    f = open(PICKLEFILE, 'rb')
-    v = pickle.load(f)
-    f.close()
-    vol_new = v[0]
-    default_station = v[1]
+    with open(PICKLEFILE, 'rb') as f:
+        v = pickle.load(f)
+        vol_new = v[0]
+        default_station = v[1]
 except:
     default_station = None
 
@@ -360,9 +360,9 @@ while pianobar.isalive():
                 # Periodically dump state (volume and station name)
                 # to pickle file so it's remembered between each run.
                 try:
-                    f = open(PICKLEFILE, 'wb')
-                    pickle.dump([vol_cur, station_list[station_num]], f)
-                    f.close()
+                    with open(PICKLEFILE, 'wb') as f:
+                        pickle.dump([vol_cur, station_list[station_num]], f)
+                        f.close()
                 except:
                     pass
         except pexpect.EOF:
