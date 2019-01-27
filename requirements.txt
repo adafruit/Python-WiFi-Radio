@@ -1,4 +1,0 @@
-RPi.GPIO
-adafruit-charlcd
-adafruit-gpio
-pexpect
